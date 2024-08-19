@@ -1,4 +1,5 @@
 import paho.mqtt.client as mqtt
+import ssl
 import logging
 import time
 import base64
@@ -12,7 +13,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger('MQTTRecorder')
 
-class SslContext():
+class SslContext:
 
     def __init__(self, enable, ca_cert, certfile, keyfile, tls_insecure):
         self.enable = enable
@@ -20,7 +21,6 @@ class SslContext():
         self.certfile = certfile
         self.keyfile = keyfile
         self.tls_insecure = tls_insecure
-
 
 class MqttRecorder:
 
@@ -34,15 +34,35 @@ class MqttRecorder:
         self.__client = mqtt.Client(client_id=client_id)
         self.__client.on_connect = self.__on_connect
         self.__client.on_message = self.__on_message
+        
+        # Username und Passwort setzen, falls vorhanden
         if username is not None:
             self.__client.username_pw_set(username, password)
+        
+        # SSL/TLS-Konfiguration
         if sslContext.enable:
-            self.__client.tls_set(sslContext.ca_cert, sslContext.certfile, sslContext.keyfile)
-            if sslContext.tls_insecure is True:
-                self.__client.tls_insecure_set(True)
+            ssl_context = ssl.create_default_context()
+            
+            # TLS 1.3 verwenden
+            ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
+            
+            # CA-Zertifikat, Client-Zertifikat und Schlüssel hinzufügen
+            if sslContext.ca_cert:
+                ssl_context.load_verify_locations(sslContext.ca_cert)
+            if sslContext.certfile and sslContext.keyfile:
+                ssl_context.load_cert_chain(certfile=sslContext.certfile, keyfile=sslContext.keyfile)
+            
+            # Unsichere TLS-Verbindung zulassen, falls gewünscht
+            if sslContext.tls_insecure:
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+            
+            # TLS-Kontext anwenden
+            self.__client.tls_set_context(ssl_context)
+        
+        # Verbindung zum MQTT-Broker herstellen
         self.__client.connect(host=host, port=port)
         self.__client.loop_start()
-
 
     def start_recording(self, topics_file: str, qos: int=0):
         self.__last_message_time = time.time()
@@ -81,7 +101,6 @@ class MqttRecorder:
                 else:
                     break
 
-
     def stop_recording(self):
         self.__client.loop_stop()
         logger.info('Recording stopped')
@@ -92,10 +111,8 @@ class MqttRecorder:
             for message in self.__messages:
                 writer.writerow(message)
 
-
     def __on_connect(self, client, userdata, flags, rc):
         logger.info("Connected to broker!")
-
 
     def __on_message(self, client, userdata, msg):
         def encode_payload(payload, encode_b64):

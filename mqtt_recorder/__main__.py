@@ -1,4 +1,4 @@
-from mqtt_recorder.recorder import MqttRecorder, SslContext
+from recorder import MqttRecorder, SslContext
 import argparse
 import time
 
