@@ -35,32 +35,31 @@ class MqttRecorder:
         self.__client.on_connect = self.__on_connect
         self.__client.on_message = self.__on_message
         
-        # Username und Passwort setzen, falls vorhanden
+        
         if username is not None:
             self.__client.username_pw_set(username, password)
         
-        # SSL/TLS-Konfiguration
+        # SSL/TLS-Configuration
         if sslContext.enable:
             ssl_context = ssl.create_default_context()
             
-            # TLS 1.3 verwenden
+            # set version to 1.3
             ssl_context.minimum_version = ssl.TLSVersion.TLSv1_3
             
-            # CA-Zertifikat, Client-Zertifikat und Schlüssel hinzufügen
+            # load CA-Certifikate, Client-Certifikate and Key 
             if sslContext.ca_cert:
                 ssl_context.load_verify_locations(sslContext.ca_cert)
             if sslContext.certfile and sslContext.keyfile:
                 ssl_context.load_cert_chain(certfile=sslContext.certfile, keyfile=sslContext.keyfile)
             
-            # Unsichere TLS-Verbindung zulassen, falls gewünscht
+            # accept insecure TLS-Connections, if desired
             if sslContext.tls_insecure:
                 ssl_context.check_hostname = False
                 ssl_context.verify_mode = ssl.CERT_NONE
             
-            # TLS-Kontext anwenden
             self.__client.tls_set_context(ssl_context)
         
-        # Verbindung zum MQTT-Broker herstellen
+        # connect to MQTT-Broker
         self.__client.connect(host=host, port=port)
         self.__client.loop_start()
 
